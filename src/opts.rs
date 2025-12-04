@@ -69,10 +69,6 @@ fn verify_input_file(filename: &str) -> Result<String, &'static str> {
     }
 }
 
-fn _parse_format(output_fmt: &str) -> Result<OutputFormat, anyhow::Error> {
-    output_fmt.parse()
-}
-
 impl FromStr for OutputFormat {
     type Err = anyhow::Error;
 
