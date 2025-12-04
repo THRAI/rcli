@@ -1,6 +1,14 @@
 use anyhow::Result;
 use csv::Reader;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
+use crate::opts::OutputFormat;
+
+#[derive(Serialize)]
+struct TomlWrapper<'a> {
+    records: &'a Vec<serde_json::Value>,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Player {
@@ -16,15 +24,24 @@ struct Player {
     kit: u8,
 }
 
-pub fn process_csv(input: &str, output: &str) -> Result<()> {
+pub fn process_csv(input: &str, output: &str, format: OutputFormat) -> Result<()> {
     let mut reader = Reader::from_path(input)?;
-    let mut records = Vec::with_capacity(128);
-    for result in reader.deserialize() {
-        let record: Player = result?;
-        records.push(record);
+    let mut ret = Vec::with_capacity(128);
+    let headers = reader.headers()?.clone();
+    for result in reader.records() {
+        let record = result?;
+        let json_value = headers.iter().zip(record.iter()).collect::<Value>();
+        ret.push(json_value);
     }
 
-    let json = serde_json::to_string_pretty(&records)?;
-    std::fs::write(output, json)?;
+    let content = match format {
+        OutputFormat::Json => serde_json::to_string_pretty(&ret)?,
+        OutputFormat::Yaml => serde_yaml::to_string(&ret)?,
+        OutputFormat::Toml => {
+            let wrapper = TomlWrapper { records: &ret };
+            toml::to_string(&wrapper)?
+        }
+    };
+    std::fs::write(output, content)?;
     Ok(())
 }
